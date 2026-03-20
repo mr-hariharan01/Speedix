@@ -52,26 +52,26 @@ export function Speedometer({ speed }: { speed: number | null }) {
         />
         <defs>
           <linearGradient id="speedGradient" x1="1" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ef4444" />   {/* Red */}
-            <stop offset="40%" stopColor="#eab308" />  {/* Yellow */}
-            <stop offset="100%" stopColor="#22c55e" /> {/* Green */}
+            <stop offset="0%" stopColor="#FF3366" />   {/* Red at max */}
+            <stop offset="40%" stopColor="#7A00FF" />  {/* Purple */}
+            <stop offset="100%" stopColor="#00CFFF" /> {/* Blue */}
           </linearGradient>
         </defs>
       </svg>
 
       {/* Animated Needle */}
       <motion.div
-        className="absolute w-1 h-[140px] origin-bottom bottom-1/2 left-[calc(50%-2px)] rounded-full bg-foreground shadow-lg"
+        className="absolute w-1 h-[140px] origin-bottom bottom-1/2 left-[calc(50%-2px)] rounded-full bg-white shadow-lg"
         initial={{ rotate: -120 }}
         animate={{ rotate: rotation }}
         transition={{ type: "spring", stiffness: 60, damping: 15 }}
       >
-        <div className="w-4 h-4 bg-primary rounded-full absolute -bottom-2 -left-[6px] shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
+        <div className="w-4 h-4 bg-[#00CFFF] rounded-full absolute -bottom-2 -left-[6px] speedix-glow-blue" />
       </motion.div>
 
       {/* Digital Display */}
       <div className="absolute top-[60%] flex flex-col items-center">
-        <div className="text-5xl font-mono font-bold tracking-tight text-foreground glow-text">
+        <div className="text-5xl font-mono font-bold tracking-tight speedix-gradient-text">
           {displaySpeed.toFixed(1)}
         </div>
         <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider">

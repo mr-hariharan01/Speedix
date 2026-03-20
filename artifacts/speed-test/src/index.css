@@ -53,35 +53,35 @@
 
 :root {
   /* Enforce Dark Mode for this specific app */
-  --background: 220 20% 6%;
-  --foreground: 210 40% 95%;
+  --background: 0 0% 4%;
+  --foreground: 240 20% 95%;
   
-  --card: 220 20% 10%;
-  --card-foreground: 210 40% 95%;
+  --card: 220 15% 8%;
+  --card-foreground: 240 20% 95%;
   --card-border: 220 15% 15%;
   
-  --popover: 220 20% 10%;
-  --popover-foreground: 210 40% 95%;
+  --popover: 220 15% 8%;
+  --popover-foreground: 240 20% 95%;
   --popover-border: 220 15% 15%;
   
-  --primary: 195 100% 50%;
-  --primary-foreground: 220 20% 6%;
+  --primary: 192 100% 50%;
+  --primary-foreground: 0 0% 4%;
   
   --secondary: 220 15% 15%;
-  --secondary-foreground: 210 40% 95%;
+  --secondary-foreground: 240 20% 95%;
   
-  --muted: 220 15% 20%;
-  --muted-foreground: 220 10% 65%;
+  --muted: 220 10% 20%;
+  --muted-foreground: 220 10% 55%;
   
-  --accent: 270 80% 65%;
-  --accent-foreground: 210 40% 95%;
+  --accent: 270 100% 50%;
+  --accent-foreground: 240 20% 95%;
   
   --destructive: 0 84% 60%;
-  --destructive-foreground: 210 40% 95%;
+  --destructive-foreground: 240 20% 95%;
   
   --border: 220 15% 15%;
   --input: 220 15% 15%;
-  --ring: 195 100% 50%;
+  --ring: 192 100% 50%;
   
   --radius: 1rem;
 }
@@ -125,4 +125,25 @@
 
 .btn-pulse {
   animation: pulse-ring 2s infinite;
+}
+
+.speedix-gradient-text {
+  background: linear-gradient(135deg, #00CFFF, #7A00FF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.speedix-gradient-border {
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+}
+
+.speedix-glow-blue {
+  box-shadow: 0 0 20px rgba(0, 207, 255, 0.3), 0 0 40px rgba(0, 207, 255, 0.1);
+}
+
+.speedix-glow-purple {
+  box-shadow: 0 0 20px rgba(122, 0, 255, 0.3), 0 0 40px rgba(122, 0, 255, 0.1);
 }

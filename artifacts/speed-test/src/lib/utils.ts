@@ -5,12 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatSpeed(mbps: number | null): string {
-  if (mbps === null) return "--";
+/** Format speed in Mbps. Never returns "--" or NaN — falls back to "0.0". */
+export function formatSpeed(mbps: number | null | undefined): string {
+  if (mbps === null || mbps === undefined || isNaN(mbps) || !isFinite(mbps)) return "0.0";
   return mbps.toFixed(1);
 }
 
-export function formatPing(ms: number | null): string {
-  if (ms === null) return "--";
+/** Format ping in ms. Never returns "--" or NaN — falls back to "0". */
+export function formatPing(ms: number | null | undefined): string {
+  if (ms === null || ms === undefined || isNaN(ms) || !isFinite(ms)) return "0";
   return Math.round(ms).toString();
 }

@@ -7,6 +7,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { Speedometer } from "@/components/speedometer";
 import { SpeedChart } from "@/components/speed-chart";
 import { formatPing, formatSpeed } from "@/lib/utils";
+import { playStartSound, playTickSound, playSuccessSound } from "@/lib/sounds";
 
 export default function Home() {
   const { 
@@ -24,56 +25,33 @@ export default function Home() {
     isRunning 
   } = useSpeedTest();
 
-  // Hold-to-start state
-  const [holdProgress, setHoldProgress] = useState(0);
-  const holdTimerRef = useRef<number | null>(null);
-  const holdStartTimeRef = useRef<number | null>(null);
-  const HOLD_DURATION = 1500; // 1.5s
-
-  const startHold = () => {
+  const handleStartTest = () => {
     if (isRunning) return;
-    setHoldProgress(0);
-    holdStartTimeRef.current = performance.now();
-    
-    const updateHold = () => {
-      if (!holdStartTimeRef.current) return;
-      const elapsed = performance.now() - holdStartTimeRef.current;
-      const p = Math.min(elapsed / HOLD_DURATION, 1);
-      setHoldProgress(p);
-      
-      if (p >= 1) {
-        startTest();
-        stopHold();
-      } else {
-        holdTimerRef.current = requestAnimationFrame(updateHold);
-      }
-    };
-    
-    holdTimerRef.current = requestAnimationFrame(updateHold);
+    playStartSound();
+    startTest();
   };
 
-  const stopHold = () => {
-    if (holdTimerRef.current) {
-      cancelAnimationFrame(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
-    holdStartTimeRef.current = null;
-    setHoldProgress(0);
-  };
-
-  // Cleanup hold timer
   useEffect(() => {
-    return () => stopHold();
-  }, []);
+    if (liveSpeed !== null && liveSpeed > 0) {
+      playTickSound();
+    }
+  }, [liveSpeed]);
+
+  useEffect(() => {
+    if (phase === "complete") {
+      playSuccessSound();
+    }
+  }, [phase]);
 
   const getStatusText = (phase: TestPhase) => {
     switch (phase) {
-      case "idle": return "Press Start to begin";
+      case "idle": return "Ready to measure";
       case "ping": return "Testing Ping...";
       case "download": return "Testing Download Speed...";
       case "upload": return "Testing Upload Speed...";
+      case "retrying": return "Re-testing for accuracy...";
       case "finalizing": return "Finalizing Results...";
-      case "complete": return "Test Complete!";
+      case "complete": return "⚡ Test Complete!";
       case "error": return "Test failed";
       default: return "";
     }
@@ -115,13 +93,14 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center space-y-4"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel mb-2 shadow-lg">
-            <Network className="w-4 h-4 text-primary" />
-            <span className="text-xs font-semibold tracking-widest text-primary uppercase">Network Diagnostics</span>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel mb-2 shadow-lg bg-white/5 border-white/10">
+            <Zap className="w-4 h-4 text-primary" />
+            <span className="text-xs font-bold tracking-widest speedix-gradient-text uppercase">SPEEDIX</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-display font-extrabold tracking-tight">
-            Internet <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent glow-text">Speed Test</span>
+            Speedix <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent glow-text">⚡</span>
           </h1>
+          <p className="text-muted-foreground text-sm tracking-wide">Measure the Real Internet</p>
         </motion.div>
 
         {/* Speedometer Hero */}
@@ -154,6 +133,21 @@ export default function Home() {
           </div>
           <ProgressBar progress={progress} isActive={isRunning} />
           
+          {/* Retrying Banner */}
+          <AnimatePresence>
+            {phase === "retrying" && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-3 text-amber-500 overflow-hidden"
+              >
+                <RefreshCw className="w-5 h-5 shrink-0 animate-spin" />
+                <p className="text-sm font-medium">🔄 Re-testing for accuracy... (low speed detected)</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Error Message */}
           <AnimatePresence>
             {error && (
@@ -161,7 +155,7 @@ export default function Home() {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="mt-2 p-4 rounded-xl bg-destructive/10 border border-destructive/20 flex items-start gap-3 text-destructive"
+                className="mt-2 p-4 rounded-xl bg-destructive/10 border border-destructive/20 flex items-start gap-3 text-destructive overflow-hidden"
               >
                 <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                 <p className="text-sm">{error}</p>
@@ -209,39 +203,53 @@ export default function Home() {
           />
         </div>
 
-        {/* AI Insight Box */}
+        {/* Speedix Result Card */}
         <AnimatePresence>
           {phase === "complete" && insight && (
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -30 }}
-              transition={{ type: "spring", damping: 20 }}
-              className="w-full max-w-2xl mt-4 glass-panel rounded-2xl p-6 flex flex-col sm:flex-row items-center sm:items-start gap-4 border border-white/5"
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -30 }}
+              transition={{ type: "spring", damping: 20, stiffness: 100 }}
+              className="w-full max-w-2xl mt-4 relative speedix-gradient-border rounded-2xl p-[1px] overflow-hidden"
             >
-              <div className={`p-4 rounded-full shrink-0 ${
-                insight.rating === 'Excellent' ? 'bg-emerald-500/20 text-emerald-400' :
-                insight.rating === 'Good' ? 'bg-primary/20 text-primary' :
-                'bg-orange-500/20 text-orange-400'
-              }`}>
-                {insight.rating === 'Excellent' && <Zap className="w-8 h-8" />}
-                {insight.rating === 'Good' && <ThumbsUp className="w-8 h-8" />}
-                {insight.rating === 'Slow' && <AlertTriangle className="w-8 h-8" />}
-              </div>
-              <div className="text-center sm:text-left flex-1 space-y-2">
-                <div className="flex items-center justify-center sm:justify-start gap-2">
-                  <h3 className="text-xl font-bold text-foreground tracking-tight">AI Insight</h3>
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
+              <div className="absolute inset-0 bg-gradient-to-r from-[#00CFFF] to-[#7A00FF] opacity-30" />
+              <div className="relative bg-card w-full h-full rounded-2xl p-6 flex flex-col gap-6">
+                <h3 className="text-2xl font-display font-extrabold tracking-tight text-white text-center">
+                  ⚡ Speedix Result
+                </h3>
+                
+                <div className="grid grid-cols-3 gap-4 text-center divide-x divide-white/10">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-medium text-muted-foreground">Download</span>
+                    <span className="text-3xl font-mono font-bold text-[#00CFFF]">{formatSpeed(downloadMbps)}</span>
+                    <span className="text-xs text-muted-foreground uppercase">Mbps</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-medium text-muted-foreground">Upload</span>
+                    <span className="text-3xl font-mono font-bold text-[#7A00FF]">{formatSpeed(uploadMbps)}</span>
+                    <span className="text-xs text-muted-foreground uppercase">Mbps</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-medium text-muted-foreground">Ping</span>
+                    <span className="text-3xl font-mono font-bold text-white">{formatPing(pingMs)}</span>
+                    <span className="text-xs text-muted-foreground uppercase">ms</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center gap-3 pt-4 border-t border-white/10">
+                  <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold tracking-wider ${
                     insight.rating === 'Excellent' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                    insight.rating === 'Good' ? 'bg-primary/20 text-primary border border-primary/30' :
+                    insight.rating === 'Good' ? 'bg-[#00CFFF]/20 text-[#00CFFF] border border-[#00CFFF]/30' :
                     'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                   }`}>
-                    {insight.rating}
-                  </span>
+                    <span>{insight.emoji}</span>
+                    <span className="uppercase">{insight.rating}</span>
+                  </div>
+                  <p className="text-muted-foreground text-sm sm:text-base leading-relaxed text-center">
+                    {insight.message}
+                  </p>
                 </div>
-                <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
-                  {insight.message}
-                </p>
               </div>
             </motion.div>
           )}
@@ -263,44 +271,24 @@ export default function Home() {
               <span>Cancel Test</span>
             </button>
           ) : (
-            <div className="flex flex-col items-center gap-3">
-              <button
-                onPointerDown={startHold}
-                onPointerUp={stopHold}
-                onPointerLeave={stopHold}
-                onContextMenu={(e) => e.preventDefault()} // prevent context menu on mobile long press
-                className="group relative px-10 py-5 rounded-full font-display font-bold text-xl bg-foreground text-background hover:bg-white transition-all duration-300 flex items-center gap-3 overflow-hidden shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:shadow-[0_0_40px_rgba(255,255,255,0.4)] select-none"
-              >
-                {/* Hold Fill Animation */}
-                <div 
-                  className="absolute inset-0 bg-primary origin-left transition-none"
-                  style={{ transform: `scaleX(${holdProgress})` }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                
-                {phase === "complete" || phase === "error" ? (
-                  <>
-                    <RefreshCw className="w-6 h-6 relative z-10 group-hover:rotate-180 transition-transform duration-500" />
-                    <span className="relative z-10 mix-blend-difference">Test Again</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-6 h-6 fill-current relative z-10 mix-blend-difference" />
-                    <span className="relative z-10 mix-blend-difference">Hold to Start</span>
-                  </>
-                )}
-              </button>
-              
-              {/* Hold Indicator Hint */}
-              {(phase === "idle" || phase === "complete" || phase === "error") && holdProgress > 0 && (
-                <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary" 
-                    style={{ width: `${holdProgress * 100}%` }}
-                  />
-                </div>
+            <button
+              onClick={handleStartTest}
+              disabled={isRunning}
+              className="group relative px-10 py-5 rounded-full font-display font-bold text-xl text-white transition-all duration-300 flex items-center gap-3 overflow-hidden shadow-[0_0_30px_rgba(0,207,255,0.4)] hover:shadow-[0_0_40px_rgba(122,0,255,0.5)] hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed select-none bg-gradient-to-r from-[#00CFFF] to-[#7A00FF]"
+            >
+              <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              {phase === "complete" || phase === "error" ? (
+                <>
+                  <RefreshCw className="w-6 h-6 relative z-10 group-hover:rotate-180 transition-transform duration-500" />
+                  <span className="relative z-10">Test Again</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-6 h-6 fill-current relative z-10" />
+                  <span className="relative z-10">▶ Start Test</span>
+                </>
               )}
-            </div>
+            </button>
           )}
         </motion.div>
 
