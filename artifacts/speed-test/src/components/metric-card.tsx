@@ -1,7 +1,7 @@
-import { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Activity, ArrowDown, ArrowUp, Loader2 } from "lucide-react";
+import { Activity, ArrowDown, ArrowUp, Loader2, TrendingDown, TrendingUp } from "lucide-react";
 
 interface MetricCardProps {
   title: string;
@@ -29,6 +29,20 @@ export function MetricCard({ title, value, unit, icon, isActive, isComplete, del
   const IconComponent = IconMap[icon];
   const colorClass = ColorMap[icon];
 
+  const prevValueRef = useRef<number | null>(null);
+  const [trend, setTrend] = useState<"up" | "down" | null>(null);
+
+  useEffect(() => {
+    if (value !== null) {
+      const numValue = parseFloat(value);
+      if (prevValueRef.current !== null) {
+        if (numValue > prevValueRef.current) setTrend("up");
+        else if (numValue < prevValueRef.current) setTrend("down");
+      }
+      prevValueRef.current = numValue;
+    }
+  }, [value]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -40,7 +54,6 @@ export function MetricCard({ title, value, unit, icon, isActive, isComplete, del
         isComplete && !isActive ? "opacity-80" : ""
       )}
     >
-      {/* Background glow when active */}
       {isActive && (
         <motion.div 
           className="absolute -inset-10 bg-primary/10 blur-[50px] rounded-full z-0"
@@ -64,8 +77,10 @@ export function MetricCard({ title, value, unit, icon, isActive, isComplete, del
         </div>
 
         <div className="flex items-baseline gap-2 mt-4">
-          <div className="text-4xl md:text-5xl font-mono font-bold text-foreground tracking-tight">
+          <div className="text-4xl md:text-5xl font-mono font-bold text-foreground tracking-tight flex items-center gap-2">
             {value !== null ? value : <span className="text-muted-foreground/30">--</span>}
+            {isActive && trend === "up" && <TrendingUp className="w-6 h-6 text-emerald-500 animate-pulse" />}
+            {isActive && trend === "down" && <TrendingDown className="w-6 h-6 text-destructive animate-pulse" />}
           </div>
           <div className="text-lg font-medium text-muted-foreground">
             {unit}
@@ -73,7 +88,6 @@ export function MetricCard({ title, value, unit, icon, isActive, isComplete, del
         </div>
       </div>
       
-      {/* Active state bottom border indicator */}
       <motion.div 
         className={cn("absolute bottom-0 left-0 h-1 bg-gradient-to-r from-transparent via-primary to-transparent")}
         initial={{ width: 0, left: "50%", x: "-50%" }}

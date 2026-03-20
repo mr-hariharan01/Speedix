@@ -53,35 +53,35 @@
 
 :root {
   /* Enforce Dark Mode for this specific app */
-  --background: 240 10% 4%;
-  --foreground: 0 0% 98%;
+  --background: 220 20% 6%;
+  --foreground: 210 40% 95%;
   
-  --card: 240 10% 6%;
-  --card-foreground: 0 0% 98%;
-  --card-border: 240 10% 12%;
+  --card: 220 20% 10%;
+  --card-foreground: 210 40% 95%;
+  --card-border: 220 15% 15%;
   
-  --popover: 240 10% 6%;
-  --popover-foreground: 0 0% 98%;
-  --popover-border: 240 10% 12%;
+  --popover: 220 20% 10%;
+  --popover-foreground: 210 40% 95%;
+  --popover-border: 220 15% 15%;
   
-  --primary: 199 89% 48%; /* Bright Neon Cyan */
-  --primary-foreground: 240 10% 4%;
+  --primary: 195 100% 50%;
+  --primary-foreground: 220 20% 6%;
   
-  --secondary: 240 10% 12%;
-  --secondary-foreground: 0 0% 98%;
+  --secondary: 220 15% 15%;
+  --secondary-foreground: 210 40% 95%;
   
-  --muted: 240 10% 12%;
-  --muted-foreground: 240 5% 65%;
+  --muted: 220 15% 20%;
+  --muted-foreground: 220 10% 65%;
   
-  --accent: 280 89% 60%; /* Vibrant Purple */
-  --accent-foreground: 0 0% 98%;
+  --accent: 270 80% 65%;
+  --accent-foreground: 210 40% 95%;
   
   --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive-foreground: 210 40% 95%;
   
-  --border: 240 10% 15%;
-  --input: 240 10% 15%;
-  --ring: 199 89% 48%;
+  --border: 220 15% 15%;
+  --input: 220 15% 15%;
+  --ring: 195 100% 50%;
   
   --radius: 1rem;
 }
