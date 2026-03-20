@@ -14,3 +14,21 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Returns pong for latency measurement
+ * @summary Ping endpoint
+ */
+export const PingResponse = zod.object({
+  message: zod.string(),
+  timestamp: zod.number(),
+});
+
+/**
+ * Accept data for upload speed measurement
+ * @summary Upload test
+ */
+export const UploadResponse = zod.object({
+  received: zod.number(),
+  message: zod.string(),
+});

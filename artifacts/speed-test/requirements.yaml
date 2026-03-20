@@ -1,0 +1,12 @@
+packages:
+  "framer-motion": "Smooth animations for metric cards and progress indicators"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility for merging tailwind classes safely"
+  "lucide-react": "Beautiful consistent icons for the metrics"
+
+images: []
+
+notes:
+  - "The speed test relies on exact timing of native fetch calls to avoid library overhead."
+  - "Download uses arrayBuffer() to ensure the entire body is read before timing stops."
+  - "Upload uses a 10MB Uint8Array sent via POST to measure upstream throughput."

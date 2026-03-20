@@ -5,18 +5,21 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type { HealthStatus, PingResponse, UploadResponse } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +102,223 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Returns pong for latency measurement
+ * @summary Ping endpoint
+ */
+export const getPingUrl = () => {
+  return `/api/ping`;
+};
+
+export const ping = async (options?: RequestInit): Promise<PingResponse> => {
+  return customFetch<PingResponse>(getPingUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getPingQueryKey = () => {
+  return [`/api/ping`] as const;
+};
+
+export const getPingQueryOptions = <
+  TData = Awaited<ReturnType<typeof ping>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof ping>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getPingQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof ping>>> = ({
+    signal,
+  }) => ping({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof ping>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type PingQueryResult = NonNullable<Awaited<ReturnType<typeof ping>>>;
+export type PingQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Ping endpoint
+ */
+
+export function usePing<
+  TData = Awaited<ReturnType<typeof ping>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof ping>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getPingQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns a 20MB binary buffer for download speed measurement
+ * @summary Download test
+ */
+export const getDownloadUrl = () => {
+  return `/api/download`;
+};
+
+export const download = async (options?: RequestInit): Promise<Blob> => {
+  return customFetch<Blob>(getDownloadUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getDownloadQueryKey = () => {
+  return [`/api/download`] as const;
+};
+
+export const getDownloadQueryOptions = <
+  TData = Awaited<ReturnType<typeof download>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof download>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getDownloadQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof download>>> = ({
+    signal,
+  }) => download({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof download>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type DownloadQueryResult = NonNullable<
+  Awaited<ReturnType<typeof download>>
+>;
+export type DownloadQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Download test
+ */
+
+export function useDownload<
+  TData = Awaited<ReturnType<typeof download>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof download>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getDownloadQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Accept data for upload speed measurement
+ * @summary Upload test
+ */
+export const getUploadUrl = () => {
+  return `/api/upload`;
+};
+
+export const upload = async (
+  uploadBody: Blob,
+  options?: RequestInit,
+): Promise<UploadResponse> => {
+  return customFetch<UploadResponse>(getUploadUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/octet-stream",
+      ...options?.headers,
+    },
+    body: JSON.stringify(uploadBody),
+  });
+};
+
+export const getUploadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upload>>,
+    TError,
+    { data: BodyType<Blob> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upload>>,
+  TError,
+  { data: BodyType<Blob> },
+  TContext
+> => {
+  const mutationKey = ["upload"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upload>>,
+    { data: BodyType<Blob> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upload(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upload>>
+>;
+export type UploadMutationBody = BodyType<Blob>;
+export type UploadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upload test
+ */
+export const useUpload = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upload>>,
+    TError,
+    { data: BodyType<Blob> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upload>>,
+  TError,
+  { data: BodyType<Blob> },
+  TContext
+> => {
+  return useMutation(getUploadMutationOptions(options));
+};

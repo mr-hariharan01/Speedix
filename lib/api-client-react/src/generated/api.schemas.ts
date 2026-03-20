@@ -8,3 +8,13 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface PingResponse {
+  message: string;
+  timestamp: number;
+}
+
+export interface UploadResponse {
+  received: number;
+  message: string;
+}

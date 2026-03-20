@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export * from "./healthStatus";
-export * from "./pingResponse";
-export * from "./uploadResponse";
+export interface UploadResponse {
+  received: number;
+  message: string;
+}

@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: speedtest
+    description: Speed test operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,53 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /ping:
+    get:
+      operationId: ping
+      tags: [speedtest]
+      summary: Ping endpoint
+      description: Returns pong for latency measurement
+      responses:
+        "200":
+          description: Pong response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PingResponse"
+  /download:
+    get:
+      operationId: download
+      tags: [speedtest]
+      summary: Download test
+      description: Returns a 20MB binary buffer for download speed measurement
+      responses:
+        "200":
+          description: Binary data for download test
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /upload:
+    post:
+      operationId: upload
+      tags: [speedtest]
+      summary: Upload test
+      description: Accept data for upload speed measurement
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +82,23 @@ components:
           type: string
       required:
         - status
-
+    PingResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        timestamp:
+          type: number
+      required:
+        - message
+        - timestamp
+    UploadResponse:
+      type: object
+      properties:
+        received:
+          type: number
+        message:
+          type: string
+      required:
+        - received
+        - message
