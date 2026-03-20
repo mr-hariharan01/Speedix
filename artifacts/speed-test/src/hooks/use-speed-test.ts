@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { calculateStability, calculateJitter } from "@/lib/analysis";
 
 export type TestPhase =
   | "idle"
@@ -32,18 +33,23 @@ export interface SpeedTestState {
   error: string | null;
   insight: SpeedInsight | null;
   retryCount: number;
+  /** Jitter = mean absolute deviation between consecutive pings (ms) */
+  jitterMs: number;
+  /** Speed samples collected during download for stability calculation */
+  speedSamples: number[];
+  /** Stability score 0–100 computed from speedSamples */
+  stabilityScore: number;
 }
 
 const PARALLEL_DOWNLOADS = 3;
 const DOWNLOAD_SIZE_MB = 20;
 const UPLOAD_SIZE_MB = 10;
-const PING_ROUNDS = 3;
+const PING_ROUNDS = 5; // extra pings for better jitter measurement
 const AUTO_RETRY_THRESHOLD_MBPS = 5;
 
 /**
- * Safe Mbps calculation using the user-specified formula:
+ * Safe Mbps calculation:
  * speedMbps = (totalBytes * 8) / (timeInSeconds * 1024 * 1024)
- * Returns 0 instead of NaN/Infinity if inputs are invalid.
  */
 function calcMbps(bytes: number, seconds: number): number {
   if (!bytes || !seconds || seconds <= 0) return 0;
@@ -51,7 +57,7 @@ function calcMbps(bytes: number, seconds: number): number {
   return isFinite(mbps) && !isNaN(mbps) ? Math.round(mbps * 10) / 10 : 0;
 }
 
-/** Compute insight from final results */
+/** Compute high-level insight from final results */
 function computeInsight(downloadMbps: number, pingMs: number): SpeedInsight {
   let rating: SpeedInsight["rating"];
   let emoji: string;
@@ -90,6 +96,9 @@ export function useSpeedTest() {
     error: null,
     insight: null,
     retryCount: 0,
+    jitterMs: 0,
+    speedSamples: [],
+    stabilityScore: 100,
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -108,33 +117,35 @@ export function useSpeedTest() {
   }, []);
 
   /**
-   * testPing — runs PING_ROUNDS sequential pings and returns the average.
+   * testPing — runs PING_ROUNDS sequential pings, returns avg and records
+   * individual times for jitter calculation.
    */
-  const testPing = async (signal: AbortSignal): Promise<number> => {
+  const testPing = async (signal: AbortSignal): Promise<{ avgMs: number; jitterMs: number; times: number[] }> => {
     const times: number[] = [];
     for (let i = 0; i < PING_ROUNDS; i++) {
       const t0 = performance.now();
       const res = await fetch("/api/ping", { signal, cache: "no-store" });
       if (!res.ok) throw new Error("Ping failed");
       await res.json();
-      times.push(performance.now() - t0);
+      times.push(Math.round((performance.now() - t0) * 10) / 10);
     }
-    const avg = times.reduce((a, b) => a + b, 0) / times.length;
-    return Math.round(avg * 10) / 10;
+    const avgMs = Math.round((times.reduce((a, b) => a + b, 0) / times.length) * 10) / 10;
+    const jitterMs = calculateJitter(times);
+    return { avgMs, jitterMs, times };
   };
 
   /**
-   * testDownload — runs PARALLEL_DOWNLOADS simultaneous fetch streams,
-   * accumulates total bytes across all streams, and computes final Mbps.
+   * testDownload — runs PARALLEL_DOWNLOADS simultaneous fetch streams.
+   * Accumulates speed samples for stability calculation.
    */
   const testDownload = async (
     signal: AbortSignal,
     onLiveUpdate: (speed: number, progress: number, point: ChartDataPoint) => void
-  ): Promise<number> => {
+  ): Promise<{ mbps: number; samples: number[] }> => {
     const dlStartTime = performance.now();
     let totalBytesReceived = 0;
+    const collectedSamples: number[] = [];
 
-    // Per-stream tracking for live speed reporting
     let lastReportTime = dlStartTime;
     let bytesSinceLastReport = 0;
     const lock = { reporting: false };
@@ -156,6 +167,7 @@ export function useSpeedTest() {
             lock.reporting = true;
             const elapsedMs = now - lastReportTime;
             const liveSpeed = calcMbps(bytesSinceLastReport, elapsedMs / 1000);
+            if (liveSpeed > 0) collectedSamples.push(liveSpeed);
             const progress = Math.min(
               40,
               (totalBytesReceived / (DOWNLOAD_SIZE_MB * 1024 * 1024 * PARALLEL_DOWNLOADS)) * 40
@@ -172,32 +184,30 @@ export function useSpeedTest() {
     await Promise.all(Array.from({ length: PARALLEL_DOWNLOADS }, downloadStream));
 
     const totalSeconds = (performance.now() - dlStartTime) / 1000;
-    return calcMbps(totalBytesReceived, totalSeconds);
+    return { mbps: calcMbps(totalBytesReceived, totalSeconds), samples: collectedSamples };
   };
 
   /**
-   * testUpload — sends one full 10MB buffer to /api/upload and measures speed.
+   * testUpload — sends a full 10MB buffer to /api/upload and measures speed.
    */
   const testUpload = async (
     signal: AbortSignal,
     onLiveUpdate: (speed: number, progress: number, point: ChartDataPoint) => void
   ): Promise<number> => {
     const uploadData = new Uint8Array(UPLOAD_SIZE_MB * 1024 * 1024);
-    // Sparse random fill (enough to defeat compression without spending time filling every byte)
     for (let i = 0; i < uploadData.length; i += 1024) {
       uploadData[i] = (Math.random() * 255) | 0;
     }
 
     const ulStart = performance.now();
-
-    // Simulate live speed updates during upload by updating every 500ms via a ticker
     let done = false;
+
     const ticker = setInterval(() => {
       if (done) return;
       const elapsed = (performance.now() - ulStart) / 1000;
       if (elapsed <= 0) return;
-      const estimatedSpeed = calcMbps(UPLOAD_SIZE_MB * 1024 * 1024 * 0.5, elapsed); // partial estimate
-      const progress = Math.min(35, (elapsed / 5) * 35); // rough 5s estimate
+      const estimatedSpeed = calcMbps(UPLOAD_SIZE_MB * 1024 * 1024 * 0.5, elapsed);
+      const progress = Math.min(35, (elapsed / 5) * 35);
       onLiveUpdate(estimatedSpeed, 60 + progress, { time: performance.now() - ulStart, speed: estimatedSpeed });
     }, 500);
 
@@ -209,7 +219,7 @@ export function useSpeedTest() {
         signal,
       });
       if (!res.ok) throw new Error("Upload failed");
-      await res.json(); // wait for full server acknowledgment
+      await res.json();
     } finally {
       done = true;
       clearInterval(ticker);
@@ -235,30 +245,40 @@ export function useSpeedTest() {
       progress: retryCount > 0 ? 5 : 3,
       error: null,
       retryCount,
+      jitterMs: retryCount > 0 ? s.jitterMs : 0,
+      speedSamples: [],
+      stabilityScore: 100,
     }));
 
     try {
       // ── 1. PING ──────────────────────────────────────────────────────
       setState(s => ({ ...s, phase: "ping", progress: 3 }));
-      const pingMs = await testPing(signal);
-      setState(s => ({ ...s, pingMs, progress: 20, phase: "download" }));
+      const { avgMs: pingMs, jitterMs } = await testPing(signal);
+      setState(s => ({ ...s, pingMs, jitterMs, progress: 20, phase: "download" }));
 
       // ── 2. DOWNLOAD ──────────────────────────────────────────────────
       const dlChartPoints: ChartDataPoint[] = [];
 
-      const downloadMbps = await testDownload(signal, (speed, progress, point) => {
-        dlChartPoints.push(point);
-        setState(s => ({
-          ...s,
-          liveSpeed: speed,
-          progress,
-          chartData: [...dlChartPoints],
-        }));
-      });
+      const { mbps: downloadMbps, samples: speedSamples } = await testDownload(
+        signal,
+        (speed, progress, point) => {
+          dlChartPoints.push(point);
+          setState(s => ({
+            ...s,
+            liveSpeed: speed,
+            progress,
+            chartData: [...dlChartPoints],
+          }));
+        }
+      );
+
+      const stabilityScore = calculateStability(speedSamples);
 
       setState(s => ({
         ...s,
         downloadMbps,
+        speedSamples,
+        stabilityScore,
         progress: 60,
         phase: "upload",
         liveSpeed: null,
@@ -269,7 +289,7 @@ export function useSpeedTest() {
       if (downloadMbps < AUTO_RETRY_THRESHOLD_MBPS && retryCount === 0) {
         setState(s => ({ ...s, phase: "retrying", liveSpeed: null, chartData: [] }));
         await new Promise(r => setTimeout(r, 1200));
-        return runTest(1); // one retry
+        return runTest(1);
       }
 
       // ── 4. UPLOAD ────────────────────────────────────────────────────
@@ -305,7 +325,7 @@ export function useSpeedTest() {
         insight,
       }));
     } catch (err: any) {
-      if (err.name === "AbortError") return; // user cancelled — stay in idle
+      if (err.name === "AbortError") return;
       setState(s => ({
         ...s,
         phase: "error",
